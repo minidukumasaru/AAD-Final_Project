@@ -32,10 +32,8 @@ public class VehicleServiceImpl implements VehicleService {
         if (vehicleRepo.existsByRegistrationNumber(vehicleDTO.getRegistrationNumber())) {
             throw new RuntimeException("Vehicle with registration number " + vehicleDTO.getRegistrationNumber() + " already exists");
         }
-
         // Create a new Vehicle entity by mapping the DTO to the entity
         Vehicle vehicle = modelMapper.map(vehicleDTO, Vehicle.class);
-
         // Save the vehicle entity in the database
         Vehicle savedVehicle = vehicleRepo.save(vehicle);
 
@@ -71,7 +69,6 @@ public class VehicleServiceImpl implements VehicleService {
     public List<VehicleDTO> getAllVehicles() {
         // Fetch all vehicles from the database
         List<Vehicle> vehicles = vehicleRepo.findAll();
-
         // Convert the list of vehicles to a list of VehicleDTOs
         return vehicles.stream()
                 .map(vehicle -> modelMapper.map(vehicle, VehicleDTO.class))
@@ -86,7 +83,6 @@ public class VehicleServiceImpl implements VehicleService {
         if (optionalVehicle.isEmpty()) {
             return false; // Vehicle not found
         }
-
         // Extract the vehicle from Optional and delete it
         Vehicle vehicle = optionalVehicle.get();
         vehicleRepo.delete(vehicle);
