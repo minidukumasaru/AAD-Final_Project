@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Guides</title>
+    <!-- Bootstrap CSS and Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .guide-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            height: 100%;
+        }
+        .guide-card:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .available {
+            border-left: 5px solid #28a745;
+        }
+        .unavailable {
+            border-left: 5px solid #dc3545;
+        }
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .guide-item {
+            flex: 0 0 calc(33.333% - 15px);
+        }
+        .guide-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .image-preview {
+            width: 100%;
+            height: 200px;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
+            background-size: cover;
+            background-position: center;
+        }
+        .image-preview-placeholder {
+            font-size: 3rem;
+            color: #ccc;
+        }
+        .language-badge {
+            display: inline-block;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .star-rating {
+            color: gold;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h2 class="mb-4">Tour Guide Management</h2>
+
+    <div class="row">
+        <!-- Guide Form Section -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Add/Update Guide</h4>
+                </div>
+                <div class="card-body">
+                    <form id="guideForm" enctype="multipart/form-data">
+                        <!-- Hidden input for tracking if we're editing -->
+                        <input type="hidden" id="guideId" value="">
+
+                        <div class="mb-3">
+                            <div id="imagePreview" class="image-preview">
+                                <div id="previewPlaceholder" class="image-preview-placeholder">
+                                    <i class="bi bi-person-circle"></i>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mb-3">
+                                <button type="button" class="btn btn-primary flex-grow-1" id="cameraBtn">
+                                    <i class="bi bi-camera"></i> Camera
+                                </button>
+                                <button type="button" class="btn btn-secondary flex-grow-1" id="browseBtn">
+                                    <i class="bi bi-folder"></i> Browse
+                                </button>
+                            </div>
+                            <input type="file" id="imageUpload" accept="image/*" style="display:none" capture="environment">
+                            <input type="hidden" id="imagePath" name="imagePath">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="contact" class="form-label">Contact</label>
+                            <input type="text" class="form-control" id="contact" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="languages" class="form-label">Languages (comma-separated)</label>
+                            <input type="text" class="form-control" id="languages" placeholder="English, Spanish, French" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="rating" class="form-label">Rating (0-5)</label>
+                            <input type="number" class="form-control" id="rating" min="0" max="5" step="0.1" required>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="available" checked>
+                            <label class="form-check-label" for="available">Available</label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="saveBtn">Save Guide</button>
+                            <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none;">Delete Guide</button>
+                            <button type="button" class="btn btn-secondary" id="clearBtn">Clear Form</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guide List Section -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4>Guide List</h4>
+                    <input type="text" class="form-control w-50" id="searchGuide" placeholder="Search guides by name...">
+                </div>
+                <div class="card-body">
+                    <div id="guideList" class="card-container">
+                        <!-- Guide cards will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Take Photo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <video id="video" width="100%" autoplay></video>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="captureBtn">Capture</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery and Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Base URL for the API - change this to match your Spring Boot application
+    const API_BASE_URL = 'http://localhost:8080'; // Default Spring Boot port
+    let authToken = localStorage.getItem('authToken') || ''; // Get token from storage or use empty string
+    let currentImage = null; // This variable tracks the current image in memory
+
+    $(document).ready(function() {
+        // Initial page load
+        loadGuides();
+
+        // Form submission handler
+        $("#guideForm").on("submit", function(e) {
+            e.preventDefault();
+            saveGuide();
+        });
+
+        // Delete button handler
+        $("#deleteBtn").on("click", function() {
+            deleteGuide();
+        });
+
+        // Clear form button handler
+        $("#clearBtn").on("click", function() {
+            clearForm();
+        });
+
+        // Search box handler
+        $("#searchGuide").on("keyup", function() {
+            const searchTerm = $(this).val().toLowerCase();
+            if (searchTerm.length > 0) {
+                searchGuides(searchTerm);
+            } else {
+                loadGuides();
+            }
+        });
+
+        // Image upload handlers
+        $("#browseBtn").on("click", function() {
+            $("#imageUpload").click();
+        });
+
+        $("#imageUpload").on("change", function(e) {
+            handleImageSelection(e.target.files[0]);
+        });
+
+        // Camera handlers
+        $("#cameraBtn").on("click", function() {
+            openCamera();
+        });
+
+        $("#captureBtn").on("click", function() {
+            capturePhoto();
+        });
+    });
+
+    // Helper function to get auth headers - only adds token if it exists
+    function getAuthHeaders() {
+        return authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+    }
+
+    function loadGuides() {
+        $.ajax({
+            url: `${API_BASE_URL}/api/guides`,
+            method: 'GET',
+            headers: getAuthHeaders(),
+            success: function(response) {
+                if (Array.isArray(response)) {
+                    displayGuides(response);
+                } else if (response && response.data && Array.isArray(response.data)) {
+                    // Handle if response is wrapped in a data field
+                    displayGuides(response.data);
+                } else {
+                    console.error("Unexpected response format:", response);
+                    alert("Error fetching guides. Check console for details.");
+                }
+            },
+            error: function(xhr) {
+                console.error("Load guides error:", xhr);
+
+                // Check if authentication is required
+                if (xhr.status === 401 || xhr.status === 403) {
+                    alert("Authentication required. Please log in.");
+                    // Redirect to login or handle authentication
+                } else {
+                    alert("Failed to connect to API: " + xhr.status + " " + xhr.statusText);
+                }
+            }
+        });
+    }
+
+    function saveGuide() {
+        let guideId = $("#guideId").val();
+        let isUpdate = guideId !== "";
+
+        // First, handle image upload if there is a new image
+        if (currentImage) {
+            uploadImage(function(uploadedImagePath) {
+                // After image upload succeeds, save guide with the new image path
+                saveGuideData(isUpdate, uploadedImagePath);
+            });
+        } else {
+            // No new image, proceed with save/update using existing image path
+            saveGuideData(isUpdate, $("#imagePath").val());
+        }
+    }
+
+    function uploadImage(callback) {
+        if (!currentImage) {
+            callback($("#imagePath").val());
+            return;
+        }
+
+        // Create FormData object to send the image file
+        const formData = new FormData();
+        formData.append('image', currentImage);
+
+        // Send image to server
+        $.ajax({
+            url: `${API_BASE_URL}/api/upload/guide-image`,
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            headers: getAuthHeaders(),
+            success: function(response) {
+                if (response.imagePath) {
+                    callback(response.imagePath);
+                } else if (response.data && response.data.imagePath) {
+                    callback(response.data.imagePath);
+                } else {
+                    alert("Image upload failed: " + (response.error || "Unknown error"));
+                    callback(null);
+                }
+            },
+            error: function(xhr) {
+                console.error("Image upload error:", xhr);
+                alert("Image upload failed. Please try again.");
+                callback(null);
+            }
+        });
+    }
+
+    function saveGuideData(isUpdate, imagePath) {
+        if (!imagePath && currentImage) {
+            alert("Failed to upload image. Please try again.");
+            return;
+        }
+
+        const guideData = {
+            id: isUpdate ? parseInt($("#guideId").val()) : null,
+            name: $("#name").val(),
+            contact: $("#contact").val(),
+            languages: $("#languages").val(),
+            rating: parseFloat($("#rating").val()),
+            available: $("#available").is(":checked"),
+            imagePath: imagePath || ""
+        };
+
+        // Determine if we're updating or creating
+        const url = isUpdate ? `${API_BASE_URL}/api/guides/${guideData.id}` : `${API_BASE_URL}/api/guides`;
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        // Send data to server
+        $.ajax({
+            url: url,
+            method: method,
+            data: JSON.stringify(guideData),
+            contentType: 'application/json',
+            headers: getAuthHeaders(),
+            success: function(response) {
+                alert(isUpdate ? "Guide updated successfully!" : "Guide created successfully!");
+                clearForm();
+                loadGuides();
+            },
+            error: function(xhr) {
+                console.error("Save guide error:", xhr.responseText);
+                alert("Failed to save guide. Please try again.");
+            }
+        });
+    }
+
+    function searchGuides(searchTerm) {
+        $.ajax({
+            url: `${API_BASE_URL}/api/guides/search?name=${encodeURIComponent(searchTerm)}`,
+            method: 'GET',
+            headers: getAuthHeaders(),
+            success: function(response) {
+                if (Array.isArray(response)) {
+                    displayGuides(response);
+                } else if (response && response.data && Array.isArray(response.data)) {
+                    displayGuides(response.data);
+                } else {
+                    console.error("Unexpected search response format:", response);
+                    alert("Error searching guides. Check console for details.");
+                }
+            },
+            error: function(xhr) {
+                console.error("Search guides error:", xhr);
+                alert("Failed to search guides. Please try again.");
+            }
+        });
+    }
+
+    function deleteGuide() {
+        const guideId = parseInt($("#guideId").val());
+
+        if (!guideId) {
+            alert("Please select a guide to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete this guide?")) {
+            return;
+        }
+
+        $.ajax({
+            url: `${API_BASE_URL}/api/guides/${guideId}`,
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            success: function(response) {
+                alert("Guide deleted successfully!");
+                clearForm();
+                loadGuides();
+            },
+            error: function(xhr) {
+                console.error("Delete guide error:", xhr);
+                alert("Failed to delete guide. Please try again.");
+            }
+        });
+    }
+
+    function fillForm(guideId) {
+        $.ajax({
+            url: `${API_BASE_URL}/api/guides/${guideId}`,
+            method: 'GET',
+            headers: getAuthHeaders(),
+            success: function(response) {
+                if (response) {
+                    const guide = response;
+
+                    $("#guideId").val(guide.id);
+                    $("#name").val(guide.name);
+                    $("#contact").val(guide.contact);
+                    $("#languages").val(guide.languages);
+                    $("#rating").val(guide.rating);
+                    $("#available").prop("checked", guide.available);
+                    $("#imagePath").val(guide.imagePath);
+
+                    // Set image preview
+                    if (guide.imagePath) {
+                        let imageSrc = guide.imagePath;
+                        if (!imageSrc.startsWith('http') && !imageSrc.startsWith('data:')) {
+                            imageSrc = `${API_BASE_URL}${guide.imagePath}`;
+                        }
+                        $("#imagePreview").css('background-image', `url(${imageSrc})`);
+                        $("#previewPlaceholder").hide();
+                    } else {
+                        $("#imagePreview").css('background-image', 'none');
+                        $("#previewPlaceholder").show();
+                    }
+
+                    // Show delete button when editing
+                    $("#deleteBtn").show();
+                    // Change button text to indicate update mode
+                    $("#saveBtn").text("Update Guide");
+
+                    // Reset currentImage since we're editing an existing image
+                    currentImage = null;
+                } else {
+                    console.error("Guide details response error:", response);
+                    alert("Failed to load guide details.");
+                }
+            },
+            error: function(xhr) {
+                console.error("Get guide details error:", xhr);
+                alert("Failed to load guide details. Please try again.");
+            }
+        });
+    }
+
+    function displayGuides(guides) {
+        const guideList = $("#guideList");
+        guideList.empty();
+
+        if (guides.length === 0) {
+            guideList.html('<div class="col-12 text-center p-3">No guides found</div>');
+            return;
+        }
+
+        guides.forEach(guide => {
+            const availabilityClass = guide.available ? 'available' : 'unavailable';
+            const stars = '★'.repeat(Math.floor(guide.rating || 0)) + '☆'.repeat(5 - Math.floor(guide.rating || 0));
+
+            // Create language badges
+            let languageBadges = '';
+            if (guide.languages) {
+                const languages = guide.languages.split(',').map(lang => lang.trim());
+                languageBadges = languages.map(lang =>
+                    `<span class="badge bg-secondary language-badge">${lang}</span>`
+                ).join('');
+            }
+
+            // Handle image path to add API base URL if needed
+            let imageSrc = guide.imagePath || '';
+            if (imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('data:')) {
+                imageSrc = `${API_BASE_URL}${guide.imagePath}`;
+            } else if (!imageSrc) {
+                imageSrc = 'https://via.placeholder.com/200?text=No+Image';
+            }
+
+            const guideCard = `
+        <div class="guide-item">
+            <div class="guide-card ${availabilityClass}" data-id="${guide.id}">
+                <img src="${imageSrc}" class="guide-image" alt="${guide.name}" onerror="this.src='https://via.placeholder.com/200?text=No+Image'">
+                <h5>${guide.name}</h5>
+                <p><i class="bi bi-telephone"></i> ${guide.contact}</p>
+                <div class="mb-2">${languageBadges}</div>
+                <div class="star-rating">${stars} (${guide.rating || 0})</div>
+                <div class="mt-2">
+                    <span class="badge ${guide.available ? 'bg-success' : 'bg-danger'}">
+                        ${guide.available ? 'Available' : 'Unavailable'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+
+            guideList.append(guideCard);
+        });
+
+        // Add click event for guide cards
+        $(".guide-card").on("click", function() {
+            const guideId = $(this).data("id");
+            fillForm(guideId);
+        });
+    }
+
+    function clearForm() {
+        $("#guideId").val("");
+        $("#name").val("");
+        $("#contact").val("");
+        $("#languages").val("");
+        $("#rating").val("");
+        $("#available").prop("checked", true);
+        $("#imagePath").val("");
+        $("#imagePreview").css('background-image', 'none');
+        $("#previewPlaceholder").show();
+        $("#deleteBtn").hide();
+        $("#saveBtn").text("Save Guide");
+        currentImage = null;
+    }
+
+    function handleImageSelection(file) {
+        if (file) {
+            currentImage = file;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $("#imagePreview").css('background-image', `url(${e.target.result})`);
+                $("#previewPlaceholder").hide();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function openCamera() {
+        const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+        cameraModal.show();
+
+        const video = document.getElementById('video');
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                })
+                .catch(function(error) {
+                    console.error("Camera error: ", error);
+                    alert("Unable to access camera. Please use the file upload instead.");
+                    cameraModal.hide();
+                });
+        } else {
+            alert("Your browser does not support camera access. Please use the file upload instead.");
+        }
+    }
+
+    function capturePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // Set canvas dimensions to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Draw video frame to canvas
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert canvas to blob
+        canvas.toBlob(function(blob) {
+            // Create a file from the blob with a .jpg extension
+            currentImage = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+
+            // Update preview
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            $("#imagePreview").css('background-image', `url(${dataUrl})`);
+            $("#previewPlaceholder").hide();
+
+            // Close camera modal
+            const cameraModal = bootstrap.Modal.getInstance(document.getElementById('cameraModal'));
+            cameraModal.hide();
+
+            // Stop the video stream
+            const stream = video.srcObject;
+            if (stream) {
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+        }, 'image/jpeg', 0.9);
+    }
+</script>
+</body>
+</html>
